@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cloudflare Whisper STT</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 500px;
+      margin: 50px auto;
+      padding: 0 16px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-right: 8px;
+      cursor: pointer;
+    }
+
+    #output {
+      margin-top: 20px;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      min-height: 50px;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Workers AI Speech-to-Text</h2>
+  <button id="recordBtn">Start Recording</button>
+  <button id="stopBtn" disabled>Stop & Transcribe</button>
+
+  <p id="status"></p>
+  <div id="output">Transcript will appear here...</div>
+
+  <script>
+    let mediaRecorder, chunks = [];
+    const recordBtn = document.getElementById('recordBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const status = document.getElementById('status');
+    const output = document.getElementById('output');
+
+    recordBtn.onclick = async () => {
+      chunks = [];
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      mediaRecorder.ondataavailable = e => chunks.push(e.data);
+      mediaRecorder.start();
+
+      recordBtn.disabled = true;
+      stopBtn.disabled = false;
+      status.textContent = "Listening...";
+    };
+
+    stopBtn.onclick = () => {
+      stopBtn.disabled = true;
+      status.textContent = "Transcribing with Workers AI...";
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+
+        const res = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: blob
+        });
+        const data = await res.json();
+
+        output.textContent = data.text || JSON.stringify(data);
+        status.textContent = "Done.";
+        recordBtn.disabled = false;
+      };
+      mediaRecorder.stop();
+    };
+  </script>
+</body>
+
+</html>

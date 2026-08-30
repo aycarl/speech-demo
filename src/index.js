@@ -1,15 +1,25 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
-
 export default {
-	async fetch(request, env, ctx) {
-		return new Response("Hello World!");
-	},
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    // API endpoint to process audio
+    if (url.pathname === "/api/transcribe" && request.method === "POST") {
+      try {
+        const blob = await request.arrayBuffer();
+        const input = {
+          audio: [...new Uint8Array(blob)]
+        };
+
+        // Run Whisper on Cloudflare's serverless edge GPUs
+        const response = await env.AI.run("@cf/openai/whisper", input);
+
+        return Response.json(response);
+      } catch (err) {
+        return Response.json({ error: err.message }, { status: 500 });
+      }
+    }
+
+    // Return 404 for unmatched non-asset routes
+    return new Response("Not Found", { status: 404 });
+  },
 };
